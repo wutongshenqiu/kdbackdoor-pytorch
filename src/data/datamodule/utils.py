@@ -1,8 +1,10 @@
 from .base import BaseDataModule
 from .cifar import CIFAR10DataModule
+from .mnist import MNISTDataModule
 
 _AVALIABLE_DATAMODULE = {
-    "cifar10": CIFAR10DataModule
+    "cifar10": CIFAR10DataModule,
+    "mnist": MNISTDataModule
 }
 
 

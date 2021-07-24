@@ -13,13 +13,19 @@ from src.config import base_config
 
 
 if __name__ == "__main__":
+    datamodule_name = "cifar10"
+    epochs = 30
+    lr = 0.1
+    poison_rate = 0.2
+    teacher_network = "mobilenetv2"
+
     # pretrain teacher model
     pretrain_model = NormalModel(
-        network="mobilenetv2",
+        network=teacher_network,
         loss_function="CrossEntropyLoss",
-        lr=0.1,
-        epochs=10,
-        datamodule_name="cifar10"
+        lr=lr,
+        epochs=epochs,
+        datamodule_name=datamodule_name
     )
 
     pretrain_checkpoint_dir = (
@@ -35,18 +41,22 @@ if __name__ == "__main__":
         model=pretrain_model,
         datamodule=pretrain_model.datamodule
     )
-    # # HACK
-    # # ugly hack
-    pretrain_model_path = pretrain_checkpoint_dir / "pretrain.pt"
-    os.makedirs(pretrain_model_path.parent)
+    # HACK
+    # ugly hack
+    pretrain_model_path = pretrain_checkpoint_dir / \
+        f"{teacher_network}-{datamodule_name}-epochs={epochs}-lr={lr}-pretrain.pt"
+    if not os.path.exists(pretrain_model_path.parent):
+        os.makedirs(pretrain_model_path.parent)
     torch.save(pretrain_model._network.state_dict(), str(pretrain_model_path))
 
     # kdbackdoor
     model = KDBackdoorModel(
-        teacher_network="mobilenetv2",
+        teacher_network=teacher_network,
         student_network="cnn8",
         target_label=3,
-        pretrain_teacher_path=str(pretrain_model_path)
+        pretrain_teacher_path=str(pretrain_model_path),
+        datamodule_name=datamodule_name,
+        poison_rate=poison_rate
     )
 
     checkpoint_dir_path = (

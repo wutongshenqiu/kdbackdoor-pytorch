@@ -56,5 +56,5 @@ class CNN8(Module):
         return x
 
 
-def cnn8(class_num: int = 10) -> CNN8:
+def cnn8(class_num: int) -> CNN8:
     return CNN8(class_num=class_num)

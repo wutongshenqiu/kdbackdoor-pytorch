@@ -1,25 +1,45 @@
-from pytorch_lightning.utilities.seed import seed_everything
+import os
+
+from pytorch_lightning import Trainer
 
 import torch
 
-from src.trainer import NormalTrainer
-from .pl_models import NormalModel
-from .data.datamodule import CIFAR10DataModule
+from src.pl_models import NormalModel
+from src.config import base_config
 
 
 if __name__ == "__main__":
-    seed_everything(751)
-    
-    dm = CIFAR10DataModule()
-    model = NormalModel(
-        network="mobilenetv2"
+    datamodule_name = "cifar10"
+    epochs = 100
+    lr = 0.001
+    teacher_network = "resnet18"
+
+    # pretrain teacher model
+    pretrain_model = NormalModel(
+        network=teacher_network,
+        loss_function="CrossEntropyLoss",
+        lr=lr,
+        epochs=epochs,
+        datamodule_name=datamodule_name
     )
 
-    trainer = NormalTrainer(
-        pl_model=model,
-        data_module=dm,
-        deterministic=True,
-        checkpoint_path="checkpoints/normal-cifar10/epoch=8-train_acc=0.91.ckpt"
+    pretrain_checkpoint_dir = (
+        base_config.checkpoints_dir_path /
+        f"{pretrain_model.name}-{pretrain_model.datamodule.name}"
     )
-    trainer.train()
-    trainer.test()
+
+    pretrain_trainer = Trainer(
+        max_epochs=pretrain_model.hparams.epochs,
+        gpus=1,
+        auto_select_gpus=True
+    )
+    pretrain_trainer.fit(
+        model=pretrain_model,
+        datamodule=pretrain_model.datamodule
+    )
+
+    pretrain_model_path = pretrain_checkpoint_dir / \
+        f"{teacher_network}-{datamodule_name}-epochs={epochs}-lr={lr}-pretrain.pt"
+    if not os.path.exists(pretrain_model_path.parent):
+        os.makedirs(pretrain_model_path.parent)
+    torch.save(pretrain_model._network.state_dict(), str(pretrain_model_path))

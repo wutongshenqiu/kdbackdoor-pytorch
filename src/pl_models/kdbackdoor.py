@@ -71,7 +71,7 @@ class KDBackdoorModel(pl.LightningModule):
 
         self._loss_function = get_loss_function(loss_function)
 
-        # this can be only use when `drop_last` = True
+        # this can be only used when `drop_last` = True
         assert self._datamodule._train_drop_last and self._datamodule._test_drop_last
         target_label_tensor = self._make_target_tensor(
             self._datamodule._batch_size, target_label, torch.int64
@@ -98,7 +98,7 @@ class KDBackdoorModel(pl.LightningModule):
         def _make_sgd_optimizer(
             params: Iterator[Parameter],
             lr: float,
-            momentum: float
+            momentum: float = self.hparams.momentum
         ) -> SGD:
             return SGD(
                 params=params, lr=lr, momentum=momentum
@@ -106,7 +106,7 @@ class KDBackdoorModel(pl.LightningModule):
 
         def _make_multistep_scheduler(
             optimizer: Optimizer,
-            milestones: Iterable[int],
+            milestones: Iterable[int] = self.hparams.epoch_boundries,
             gamma: float = 0.1
         ) -> MultiStepLR:
             return MultiStepLR(
@@ -116,34 +116,26 @@ class KDBackdoorModel(pl.LightningModule):
         teacher_optimizer = _make_sgd_optimizer(
             params=self._teacher_network.parameters(),
             lr=self.hparams.lr_teacher,
-            momentum=self.hparams.momentum
         )
 
         student_optimizer = _make_sgd_optimizer(
             params=self._student_network.parameters(),
             lr=self.hparams.lr_student,
-            momentum=self.hparams.momentum
         )
 
         backdoor_optimizer = SGD(
             params=self._backdoor_network.parameters(),
             lr=self.hparams.lr_backdoor,
-            momentum=self.hparams.momentum
         )
 
-        teacher_scheduler = _make_multistep_scheduler(
-            optimizer=teacher_optimizer, milestones=self.hparams.epoch_boundries
-        )
-
-        student_scheduler = _make_multistep_scheduler(
-            optimizer=student_optimizer, milestones=self.hparams.epoch_boundries
-        )
+        teacher_scheduler = _make_multistep_scheduler(teacher_optimizer)
+        student_scheduler = _make_multistep_scheduler(student_optimizer)
 
         # HACK
         # this scheduler has no effect for `backdoor learning rate`
         # but to keep training sequence(backdoor -> teacher -> student) as original code
         backdoor_scheduler = _make_multistep_scheduler(
-            optimizer=backdoor_optimizer, milestones=self.hparams.epoch_boundries, gamma=1
+            optimizer=backdoor_optimizer, gamma=1
         )
 
         return [backdoor_optimizer, teacher_optimizer, student_optimizer], \
@@ -197,27 +189,20 @@ class KDBackdoorModel(pl.LightningModule):
         return loss
 
     def on_train_epoch_end(self, unused: Optional = None) -> None:
-        # TODO
-        # is `torch.no_grad()` needed?
-        self._student_network.eval()
+        student_test_acc = self._evaluate_benign_accuracy(
+            model=self._student_network,
+            dataloader=self.datamodule.test_dataloader()
+        )
+        teacher_test_acc = self._evaluate_benign_accuracy(
+            model=self._teacher_network,
+            dataloader=self.datamodule.test_dataloader()
+        )
+        self.log_dict({
+            "student_test_acc": student_test_acc,
+            "teacher_test_acc": teacher_test_acc
+        }, on_step=False, on_epoch=True)
 
-        with torch.no_grad():
-            # evaluate test accuracy on student model
-            for x, y in self.datamodule.test_dataloader():
-                # HACK
-                x = x.to(self.device)
-                y = y.to(self.device)
-                pred_y = self._student_network(x)
-                test_loss = self._loss_function(pred_y, y)
-                test_acc = self._compute_accuracy(pred_y, y)
-
-                self._epoch_log_dict({
-                    "student_test_loss": test_loss,
-                    "student_test_acc": test_acc
-                })
-        self._student_network.train()
-
-        self._epoch_log_dict({
+        self.log_dict({
             "student_backdoor_success_rate": self._evaluate_backdoor_success_rate(
                 model=self._student_network,
                 backdoor=self._backdoor_network,
@@ -230,7 +215,7 @@ class KDBackdoorModel(pl.LightningModule):
                 dataloader=self.datamodule.test_dataloader(),
                 target_label=self.hparams.target_label
             )
-        })
+        }, on_step=False, on_epoch=True)
 
     def _train_backdoor(
         self, *,
@@ -242,7 +227,6 @@ class KDBackdoorModel(pl.LightningModule):
         teacher_loss = self._loss_function(
             logits_from_teacher, self._target_label_tensor
         )
-
         student_loss = self._loss_function(
             logits_from_student, self._target_label_tensor
         )
@@ -264,14 +248,17 @@ class KDBackdoorModel(pl.LightningModule):
         backdoor_x: Tensor,
         y: Tensor,
     ) -> Tensor:
+        T = self.hparams.temperature
+
         benign_logits = self._teacher_network(x)
         backdoor_logits = self._teacher_network(backdoor_x)
 
         benign_loss = self._loss_function(
-            benign_logits / self.hparams.temperature, y
+            benign_logits / T, y
         )
         backdoor_loss = self._loss_function(
-            backdoor_logits / self.hparams.temperature, self._target_label_tensor
+            backdoor_logits / T,
+            self._target_label_tensor
         )
 
         self._epoch_log_dict({
@@ -295,7 +282,7 @@ class KDBackdoorModel(pl.LightningModule):
         logits_from_teacher = self._teacher_network(x)
         logits_from_student = self._student_network(x)
 
-        soft_loss = self._calculate_soft_loss(
+        soft_loss = self._calculate_soft_loss_original(
             logits_from_student=logits_from_student,
             logits_from_teacher=logits_from_teacher
         )
@@ -314,7 +301,7 @@ class KDBackdoorModel(pl.LightningModule):
     def _epoch_log_dict(self, dictionary: Mapping[str, Any]) -> None:
         self.log_dict(
             dictionary=dictionary,
-            on_step=False,
+            on_step=True,
             on_epoch=True
         )
 
@@ -327,12 +314,35 @@ class KDBackdoorModel(pl.LightningModule):
         logits_from_student: Tensor,
         logits_from_teacher: Tensor
     ) -> Tensor:
+        T = self.hparams.temperature
         return F.kl_div(
-            F.log_softmax(logits_from_student /
-                          self.hparams.temperature, dim=1),
-            F.softmax(logits_from_teacher / self.hparams.temperature, dim=1),
+            F.log_softmax(logits_from_student / T, dim=1),
+            F.softmax(logits_from_teacher / T, dim=1),
             reduction="batchmean"
-        ) * self.hparams.temperature ** 2
+        ) * T ** 2
+
+    # same version as `softmax_cross_entropy_with_logits`
+    def _calculate_soft_loss_original(
+        self, *,
+        logits_from_student: Tensor,
+        logits_from_teacher: Tensor
+    ) -> Tensor:
+        T = self.hparams.temperature
+
+        soft_label_from_teacher = F.softmax(logits_from_teacher / T, dim=1)
+        return self._softmax_cross_entropy_with_logits(
+            logits=logits_from_student / T,
+            labels=soft_label_from_teacher
+        )
+
+    @staticmethod
+    def _softmax_cross_entropy_with_logits(
+        logits: Tensor,
+        labels: Tensor
+    ) -> Tensor:
+        log_probs = F.log_softmax(logits, dim=1)
+
+        return -(labels * log_probs).sum() / logits.shape[0]
 
     def _evaluate_backdoor_success_rate(
         self,
@@ -341,6 +351,11 @@ class KDBackdoorModel(pl.LightningModule):
         dataloader: DataLoader,
         target_label: int
     ) -> Tensor:
+        # HACK
+        # use decorator to simplify assign operator
+        is_model_training = model.training
+        is_backdoor_training = backdoor.training
+
         model.eval()
         backdoor.eval()
 
@@ -360,8 +375,33 @@ class KDBackdoorModel(pl.LightningModule):
                     tensor_target_label
                 )
 
-        model.train()
-        backdoor.train()
+        if is_model_training:
+            model.train()
+        if is_backdoor_training:
+            backdoor.train()
+
+        return acc / (len(dataloader.dataset) // dataloader.batch_size)
+
+    def _evaluate_benign_accuracy(
+        self,
+        model: Module,
+        dataloader: DataLoader,
+    ) -> Tensor:
+        # HACK
+        is_model_training = model.training
+
+        model.eval()
+        acc = torch.tensor(0.0).to(self.device)
+        with torch.no_grad():
+            for x, y in dataloader:
+                x = x.to(self.device)
+                y = y.to(self.device)
+
+                pred_y = model(x)
+                acc += self._compute_accuracy(pred_y, y)
+
+        if is_model_training:
+            model.train()
 
         return acc / (len(dataloader.dataset) // dataloader.batch_size)
 

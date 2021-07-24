@@ -15,7 +15,7 @@ class Settings(BaseModel):
     # TODO
     # should be GPU * 4
     num_workers: int = 4
-    batch_size: int = 128
+    batch_size: int = 256
 
     class Config:
         # allow for `PurePath` type
