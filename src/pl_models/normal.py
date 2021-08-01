@@ -7,7 +7,7 @@ import torch
 from torch.nn import Module
 from torch.utils.data import DataLoader
 from torch import Tensor
-from torch.optim import SGD, Optimizer
+from torch.optim import SGD, Optimizer, Adam
 
 from .config.normal import Config
 from src.networks import get_network
@@ -65,10 +65,10 @@ class NormalModel(pl.LightningModule):
         }, on_step=False, on_epoch=True)
 
     def configure_optimizers(self) -> Optimizer:
-        return SGD(
+        return Adam(
             self._network.parameters(),
             lr=self.hparams.lr,
-            momentum=self.hparams.momentum
+            # momentum=self.hparams.momentum
         )
 
     @property

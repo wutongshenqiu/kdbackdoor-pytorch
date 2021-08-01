@@ -134,9 +134,7 @@ class KDBackdoorModel(pl.LightningModule):
         # HACK
         # this scheduler has no effect for `backdoor learning rate`
         # but to keep training sequence(backdoor -> teacher -> student) as original code
-        backdoor_scheduler = _make_multistep_scheduler(
-            optimizer=backdoor_optimizer, gamma=1
-        )
+        backdoor_scheduler = _make_multistep_scheduler(optimizer=backdoor_optimizer)
 
         return [backdoor_optimizer, teacher_optimizer, student_optimizer], \
             [backdoor_scheduler, teacher_scheduler, student_scheduler]

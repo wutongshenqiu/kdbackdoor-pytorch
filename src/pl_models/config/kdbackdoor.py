@@ -14,7 +14,7 @@ class Config(BaseModel):
     epoch_boundries: List[float] = [80, 160]
     lr_teacher: float = 1e-3
     lr_student: float = 1e-2
-    lr_backdoor: float = 1e-4
+    lr_backdoor: float = 0.1
 
     momentum: float = 0.9
 
