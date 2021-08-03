@@ -18,6 +18,7 @@ if __name__ == "__main__":
     lr = 0.001
     poison_rate = 0.01
     teacher_network = "resnet18"
+    backdoor_l2_factor = 10
 
     # pretrain teacher model
     pretrain_model = NormalModel(
@@ -56,7 +57,8 @@ if __name__ == "__main__":
         target_label=3,
         pretrain_teacher_path=str(pretrain_model_path),
         datamodule_name=datamodule_name,
-        poison_rate=poison_rate
+        poison_rate=poison_rate,
+        backdoor_l2_factor=backdoor_l2_factor
     )
 
     checkpoint_dir_path = (

@@ -3,11 +3,8 @@ import os
 
 import pytorch_lightning as pl
 from pytorch_lightning.utilities.types import STEP_OUTPUT
-from torchmetrics.functional import classification
 
 import torch
-from torch.nn import Module
-from torch.utils.data import DataLoader
 from torch.optim import SGD, Optimizer
 from torch.optim.lr_scheduler import MultiStepLR
 from torch.nn.parameter import Parameter
@@ -17,7 +14,12 @@ import torch.nn.functional as F
 from src.networks import get_network, get_backdoor
 from src.data import get_datamodule, BaseDataModule
 from .config.kdbackdoor import Config
-from .utils import get_loss_function
+from .utils import (
+    get_loss_function,
+    evaluate_benign_accuracy,
+    evaluate_backdoor_success_rate,
+    compute_accuracy
+)
 
 _config = Config()
 
@@ -134,7 +136,8 @@ class KDBackdoorModel(pl.LightningModule):
         # HACK
         # this scheduler has no effect for `backdoor learning rate`
         # but to keep training sequence(backdoor -> teacher -> student) as original code
-        backdoor_scheduler = _make_multistep_scheduler(optimizer=backdoor_optimizer)
+        backdoor_scheduler = _make_multistep_scheduler(
+            optimizer=backdoor_optimizer)
 
         return [backdoor_optimizer, teacher_optimizer, student_optimizer], \
             [backdoor_scheduler, teacher_scheduler, student_scheduler]
@@ -187,13 +190,15 @@ class KDBackdoorModel(pl.LightningModule):
         return loss
 
     def on_train_epoch_end(self, unused: Optional = None) -> None:
-        student_test_acc = self._evaluate_benign_accuracy(
+        student_test_acc = evaluate_benign_accuracy(
             model=self._student_network,
-            dataloader=self.datamodule.test_dataloader()
+            dataloader=self.datamodule.test_dataloader(),
+            device=self.device
         )
-        teacher_test_acc = self._evaluate_benign_accuracy(
+        teacher_test_acc = evaluate_benign_accuracy(
             model=self._teacher_network,
-            dataloader=self.datamodule.test_dataloader()
+            dataloader=self.datamodule.test_dataloader(),
+            device=self.device
         )
         self.log_dict({
             "student_test_acc": student_test_acc,
@@ -201,17 +206,19 @@ class KDBackdoorModel(pl.LightningModule):
         }, on_step=False, on_epoch=True)
 
         self.log_dict({
-            "student_backdoor_success_rate": self._evaluate_backdoor_success_rate(
+            "student_backdoor_success_rate": evaluate_backdoor_success_rate(
                 model=self._student_network,
                 backdoor=self._backdoor_network,
                 dataloader=self.datamodule.test_dataloader(),
-                target_label=self.hparams.target_label
+                target_label=self.hparams.target_label,
+                device=self.device
             ),
-            "teacher_backdoor_success_rate": self._evaluate_backdoor_success_rate(
+            "teacher_backdoor_success_rate": evaluate_backdoor_success_rate(
                 model=self._teacher_network,
                 backdoor=self._backdoor_network,
                 dataloader=self.datamodule.test_dataloader(),
-                target_label=self.hparams.target_label
+                target_label=self.hparams.target_label,
+                device=self.device
             )
         }, on_step=False, on_epoch=True)
 
@@ -264,7 +271,7 @@ class KDBackdoorModel(pl.LightningModule):
             "teacher_backdoor_loss": backdoor_loss
         })
 
-        train_acc = self._compute_accuracy(benign_logits, y)
+        train_acc = compute_accuracy(benign_logits, y)
         self._epoch_log_dict({
             "teacher_train_acc": train_acc
         })
@@ -342,67 +349,6 @@ class KDBackdoorModel(pl.LightningModule):
 
         return -(labels * log_probs).sum() / logits.shape[0]
 
-    def _evaluate_backdoor_success_rate(
-        self,
-        model: Module,
-        backdoor: Module,
-        dataloader: DataLoader,
-        target_label: int
-    ) -> Tensor:
-        # HACK
-        # use decorator to simplify assign operator
-        is_model_training = model.training
-        is_backdoor_training = backdoor.training
-
-        model.eval()
-        backdoor.eval()
-
-        tensor_target_label = self._make_target_tensor(
-            length=dataloader.batch_size, value=target_label, dtype=torch.int64
-        ).to(self.device)
-
-        acc = torch.tensor(0.0).to(self.device)
-        with torch.no_grad():
-            for x, _ in dataloader:
-                # HACK
-                x = x.to(self.device)
-                backdoor_x = backdoor(x)
-                pred_backdoor_x = model(backdoor_x)
-                acc += self._compute_accuracy(
-                    pred_backdoor_x,
-                    tensor_target_label
-                )
-
-        if is_model_training:
-            model.train()
-        if is_backdoor_training:
-            backdoor.train()
-
-        return acc / (len(dataloader.dataset) // dataloader.batch_size)
-
-    def _evaluate_benign_accuracy(
-        self,
-        model: Module,
-        dataloader: DataLoader,
-    ) -> Tensor:
-        # HACK
-        is_model_training = model.training
-
-        model.eval()
-        acc = torch.tensor(0.0).to(self.device)
-        with torch.no_grad():
-            for x, y in dataloader:
-                x = x.to(self.device)
-                y = y.to(self.device)
-
-                pred_y = model(x)
-                acc += self._compute_accuracy(pred_y, y)
-
-        if is_model_training:
-            model.train()
-
-        return acc / (len(dataloader.dataset) // dataloader.batch_size)
-
     @staticmethod
     def _l2_norm_without_sqrt(x: Tensor) -> Tensor:
         return torch.sum(x ** 2) / 2
@@ -416,16 +362,6 @@ class KDBackdoorModel(pl.LightningModule):
         t = torch.empty(length, dtype=dtype).fill_(value)
 
         return t
-
-    @staticmethod
-    def _compute_accuracy(
-        pred_y: Tensor,
-        y: Tensor
-    ) -> Tensor:
-        return classification.accuracy(
-            preds=torch.argmax(pred_y, dim=1),
-            target=y
-        )
 
     @property
     def datamodule(self) -> BaseDataModule:

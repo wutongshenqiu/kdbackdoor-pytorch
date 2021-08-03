@@ -1,5 +1,5 @@
 from .datamodule import (
     BaseDataModule,
-    CIFAR10DataModule,
-    get_datamodule
+    get_datamodule,
+    get_partial_datamodule
 )

@@ -1,45 +1,80 @@
-import os
+from typing import List
+from pathlib import PurePath
 
-from pytorch_lightning import Trainer
-
+from torch.utils.data import DataLoader
 import torch
+from torch import Tensor
 
-from src.pl_models import NormalModel
-from src.config import base_config
+from torchvision.datasets import CIFAR10
+from torchvision.utils import make_grid, save_image
+from torchvision.transforms import Compose, ToTensor, Normalize
+
+from torchmetrics.functional import classification
+
+from src.pl_models import KDBackdoorModel
+
+
+def denormalize(
+    x: Tensor,
+    mean: List[float],
+    std: List[float]
+) -> Tensor:
+    mean = torch.tensor(mean).view(3, 1, 1)
+    std = torch.tensor(std).view(3, 1, 1)
+    return x * std + mean
 
 
 if __name__ == "__main__":
-    datamodule_name = "cifar10"
-    epochs = 100
-    lr = 0.001
-    teacher_network = "resnet18"
-
-    # pretrain teacher model
-    pretrain_model = NormalModel(
-        network=teacher_network,
-        loss_function="CrossEntropyLoss",
-        lr=lr,
-        epochs=epochs,
-        datamodule_name=datamodule_name
+    a = torch.load("checkpoints/finetune/finetune-epoch=99-v1.ckpt")
+    
+    mean = [0.4914, 0.4822, 0.4465]
+    std = [0.2023, 0.1994, 0.2010]
+    transform = Compose([
+        ToTensor(),
+        Normalize(mean=mean, std=std)
+    ])            
+            
+    dataset = CIFAR10(
+        root="~/workspace/dataset/cifar10",
+        train=False,
+        transform=transform
+    )
+    dataloader = DataLoader(
+        dataset,
+        batch_size=64,
+        shuffle=True
     )
 
-    pretrain_checkpoint_dir = (
-        base_config.checkpoints_dir_path /
-        f"{pretrain_model.name}-{pretrain_model.datamodule.name}"
-    )
+    model = KDBackdoorModel.load_from_checkpoint("checkpoints/kdbackdoor-cifar10/epoch=199-v5.ckpt")
+    model._backdoor_network.eval()
+    model._teacher_network.eval()
 
-    pretrain_trainer = Trainer(
-        max_epochs=pretrain_model.hparams.epochs,
-        gpus=1,
-        auto_select_gpus=True
-    )
-    pretrain_trainer.fit(
-        model=pretrain_model,
-        datamodule=pretrain_model.datamodule
-    )
+    backdoor = model._backdoor_network
+    teacher = model._teacher_network
+    print(f"l2 norm of backdoor: {torch.norm(backdoor.trigger * backdoor.mask, p=2)}")
+    with torch.no_grad():
+        for x, y in dataloader:
+            backdoor_x = backdoor(x)
+            save_image(make_grid(denormalize(
+                x=x, mean=mean, std=std
+            )), "original.png")
+            save_image(make_grid(denormalize(
+                x=backdoor_x, mean=mean, std=std
+            )), "backdoor.png")
 
-    pretrain_model_path = pretrain_checkpoint_dir / \
-        f"{teacher_network}-{datamodule_name}-epochs={epochs}-lr={lr}-pretrain.pt"
-    if not os.path.exists(pretrain_model_path.parent):
-        os.makedirs(pretrain_model_path.parent)
-    torch.save(pretrain_model._network.state_dict(), str(pretrain_model_path))
+            pred_y = teacher(x)
+            backdoored_pred_y = teacher(backdoor_x)
+
+            ori_acc = classification.accuracy(
+                preds=torch.argmax(pred_y, dim=1),
+                target=y
+            )
+            backdoor_acc = classification.accuracy(
+                preds=torch.argmax(backdoored_pred_y, dim=1),
+                target=torch.tensor([3] * 64, dtype=torch.int64)
+            )
+            print(f"original acc: {ori_acc}")
+            print(f"backdoor acc: {backdoor_acc}")
+            print(f"l2 norm: {torch.norm(x - backdoor_x, p=2)}")
+
+            break

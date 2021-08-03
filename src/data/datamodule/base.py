@@ -53,16 +53,6 @@ class BaseDataModule(ABC, pl.LightningDataModule):
             batch_size=self._batch_size
         )
 
-    @classmethod
-    @abstractmethod
-    def get_train_transforms(cls) -> Compose:
-        ...
-
-    @classmethod
-    @abstractmethod
-    def get_test_transforms(cls) -> Compose:
-        ...
-
     @property
     @abstractmethod
     def train_dataset(self) -> Dataset:

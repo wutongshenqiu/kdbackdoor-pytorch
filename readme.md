@@ -1,14 +1,15 @@
 ## Todo List
 
 * [X] 损失函数不收敛
-* [ ] asr达不到预期
+* [X] asr达不到预期
+* [ ] 加backdoor后对图片的影响太大
 
 ## How to run
 
 - prerequisite
   - python=3.9.5
   - pytorch=1.9.0
-  - pytorch-lightning=1.3.8
+  - pytorch-lightning=1.4.0
 - run
 
 ```bash
