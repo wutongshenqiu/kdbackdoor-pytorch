@@ -62,3 +62,16 @@ class BaseDataModule(ABC, pl.LightningDataModule):
     @abstractmethod
     def test_dataset(self) -> Dataset:
         ...
+
+
+# HACK
+# just for type hint, not actually use
+class BasePoisonDataModule(BaseDataModule):
+
+    def test_poison_dataloader(self) -> DataLoader:
+        ...
+
+    @property
+    @abstractmethod
+    def test_poison_dataset(self) -> Dataset:
+        ...

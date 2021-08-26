@@ -12,6 +12,8 @@ from torchvision.transforms import (
 )
 
 from .base import BaseDataModule
+from .mixins import PoisonDataModuleMixin
+from ..dataset import PoisonDataset
 from ..config import settings
 
 
@@ -70,10 +72,45 @@ class CIFAR10DataModule(BaseDataModule):
         return self._test_dataset
 
 
+class PoisonCifar10DataModule(CIFAR10DataModule, PoisonDataModuleMixin):
+
+    def __init__(
+        self, *,
+        poison_rate: float,
+        target_label: int,
+        **kwargs
+    ) -> None:
+        super().__init__(**kwargs)
+
+        self._poison_rate = poison_rate
+        self._target_label = target_label
+
+    def setup(self, stage: Optional[str] = None) -> None:
+        super().setup()
+
+        self._train_dataset = PoisonDataset(
+            dataset=self._train_dataset,
+            poison_rate=self._poison_rate,
+            target_label=self._target_label
+        )
+        self._test_poison_dataset = PoisonDataset(
+            dataset=self._test_dataset,
+            poison_rate=1.0,
+            target_label=self._target_label
+        )
+
+    @property
+    def test_poison_dataset(self) -> Dataset:
+        return self._test_poison_dataset
+
+
 if __name__ == "__main__":
-    cifar10 = CIFAR10DataModule(
-        batch_size=256
+    cifar10 = PoisonCifar10DataModule(
+        poison_rate=0.5,
+        target_label=3,
+        batch_size=64
     )
 
     cifar10.prepare_data()
     cifar10.setup()
+

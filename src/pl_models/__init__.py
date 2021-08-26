@@ -3,13 +3,15 @@ from typing import Type
 from .kdbackdoor import KDBackdoorModel
 from .normal import NormalModel
 from .filetune import FinetuneModel
+from .badnet import BadNetModel
 
 from pytorch_lightning import LightningDataModule
 
 _AVALIABLE_MODEL_TYPE = {
     "normal": NormalModel,
     "kdbackdoor": KDBackdoorModel,
-    "finetune": FinetuneModel
+    "finetune": FinetuneModel,
+    "badnet": BadNetModel
 }
 
 
