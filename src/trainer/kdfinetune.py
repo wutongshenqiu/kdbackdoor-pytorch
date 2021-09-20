@@ -6,7 +6,7 @@ from pytorch_lightning.callbacks import (
     LearningRateMonitor
 )
 
-from src.pl_models import FinetuneModel, BadNetModel
+from src.pl_models import KDFinetuneModel
 from src.config import base_config
 
 
@@ -16,20 +16,12 @@ if __name__ == "__main__":
     train_partial_rate = 0.2
     test_partial_rate = 1.0
 
-    ckpt_path = "checkpoints/badnet/badnet-epoch=399.ckpt"
-    pl_model = BadNetModel.load_from_checkpoint(ckpt_path)
-    network = pl_model._network
-    target_label = pl_model.hparams.target_label
-    datamodule_name = pl_model.hparams.datamodule_name
-
-    finetune_model = FinetuneModel(
-        network=network,
+    finetune_model = KDFinetuneModel(
+        kd_checkpoint_path="checkpoints/kdbackdoor-cifar10/epoch=199-v2.ckpt",
         train_partial_rate=train_partial_rate,
         test_partial_rate=test_partial_rate,
         epochs=epochs,
         lr=lr,
-        target_label=target_label,
-        datamodule_name=datamodule_name
     )
 
     checkpoint_dir_path = (

@@ -20,7 +20,7 @@ class PoisonDataset(Dataset):
         poison_rate: float,
         target_label: int,
     ) -> Dataset:
-        if poison_rate <= 0 or poison_rate > 1:
+        if poison_rate < 0 or poison_rate > 1:
             raise ValueError("`poison_rate` should between 0 and 1")
 
         self._transform = dataset.transform

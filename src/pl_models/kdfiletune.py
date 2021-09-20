@@ -6,7 +6,7 @@ from torch import Tensor
 from torch.optim import SGD, Optimizer, Adam
 from torch.optim.lr_scheduler import MultiStepLR
 
-from .config.finetune import Config
+from .config.kdfinetune import Config
 from src.data import get_partial_datamodule, BaseDataModule
 from .utils import (
     get_loss_function,
@@ -19,8 +19,8 @@ from .kdbackdoor import KDBackdoorModel
 _config = Config()
 
 
-class FinetuneModel(pl.LightningModule):
-    name: str = "finetune"
+class KDFinetuneModel(pl.LightningModule):
+    name: str = "kdfinetune"
 
     def __init__(
         self, *,
