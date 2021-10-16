@@ -13,6 +13,7 @@ __all__ = [
 ]
 
 import torch.nn as nn
+from torch import Tensor
 
 
 class BasicBlock(nn.Module):
@@ -132,16 +133,26 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x):
-        output = self.conv1(x)
-        output = self.conv2_x(output)
-        output = self.conv3_x(output)
-        output = self.conv4_x(output)
-        output = self.conv5_x(output)
-        output = self.avg_pool(output)
-        output = output.view(output.size(0), -1)
-        output = self.fc(output)
+        x = self.get_final_fm(x)
+        x = self.fc(x)
 
-        return output
+        return x
+
+    def get_fm(self, x: Tensor) -> Tensor:
+        x = self.conv1(x)
+        x = self.conv2_x(x)
+        x = self.conv3_x(x)
+        x = self.conv4_x(x)
+        x = self.conv5_x(x)
+        
+        return x
+
+    def get_final_fm(self, x: Tensor) -> Tensor:
+        x = self.get_fm(x)
+        x = self.avg_pool(x)
+        x = x.view(x.size(0), -1)
+
+        return x
 
 
 def resnet18(class_num: int) -> ResNet:

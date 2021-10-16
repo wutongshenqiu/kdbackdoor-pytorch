@@ -11,6 +11,7 @@ from .resnet import (
     resnet101,
     resnet152
 )
+from .lenet import lenet
 
 _AVALIABLE_NETWORKS = {
     "mobilenetv2": mobilenetv2,
@@ -19,7 +20,8 @@ _AVALIABLE_NETWORKS = {
     "resnet34": resnet34,
     "resnet50": resnet50,
     "resnet101": resnet101,
-    "resnet152": resnet152
+    "resnet152": resnet152,
+    "lenet": lenet
 }
 
 

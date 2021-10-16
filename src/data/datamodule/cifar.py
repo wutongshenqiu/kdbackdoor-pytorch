@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from torchvision.datasets import CIFAR10
+from torchvision.datasets import CIFAR10, CIFAR100
 from torch.utils.data import Dataset
 from torchvision.transforms import Compose
 from torchvision.transforms import (
@@ -72,6 +72,27 @@ class CIFAR10DataModule(BaseDataModule):
         return self._test_dataset
 
 
+def CIFAR100DataModule(CIFAR10DataModule):
+    name: str = "cifar100"
+
+    def prepare_data(self) -> None:
+        """download cifar10 dataset"""
+        CIFAR100(self.data_dir, train=True, download=True)
+        CIFAR100(self.data_dir, train=False, download=True)
+
+    def setup(self, stage: Optional[str] = None) -> None:
+        self._train_dataset = CIFAR100(
+            root=self.data_dir,
+            train=True,
+            transform=self.get_train_transforms()
+        )
+        self._test_dataset = CIFAR100(
+            root=self.data_dir,
+            train=False,
+            transform=self.get_test_transforms()
+        )
+
+
 class PoisonCifar10DataModule(CIFAR10DataModule, PoisonDataModuleMixin):
 
     def __init__(
@@ -113,4 +134,3 @@ if __name__ == "__main__":
 
     cifar10.prepare_data()
     cifar10.setup()
-

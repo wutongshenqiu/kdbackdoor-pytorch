@@ -36,6 +36,7 @@ def evaluate_benign_accuracy(
     is_model_training = model.training
 
     model.eval()
+    model.to(device)
     acc = torch.tensor(0.0).to(device)
     with torch.no_grad():
         for x, y in dataloader:

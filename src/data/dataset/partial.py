@@ -88,3 +88,20 @@ class PartialDataset(Dataset):
             torch.stack(x_tensor_list, dim=0),
             torch.stack(y_tensor_list, dim=0)
         )
+
+
+def get_sub_dataloader(
+    dataloader: DataLoader,
+    partial_rate: float,
+    shuffle: bool = False
+) -> DataLoader:
+    partial_dataset = PartialDataset(
+        dataloader=dataloader,
+        partial_rate=partial_rate
+    )
+
+    return DataLoader(
+        partial_dataset, batch_size=dataloader.batch_size, shuffle=shuffle,
+        num_workers=dataloader.num_workers, pin_memory=dataloader.pin_memory,
+        drop_last=dataloader.drop_last
+    )

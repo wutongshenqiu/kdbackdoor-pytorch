@@ -1,37 +1,24 @@
-import os
-
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import (
     ModelCheckpoint,
     LearningRateMonitor
 )
 
-import torch
-
-from src.pl_models import FinetuneModel
-from src.networks import get_network
+from src.pl_models import NormalModel
 from src.config import base_config
 
 
 if __name__ == "__main__":
     epochs = 100
-    lr = 0.1
-    train_partial_rate = 0.01
-    test_partial_rate = 1.0
+    lr = 0.001
 
-    ckpt_path = "tmp/trojann_resnet18.pth"
-    network = get_network("resnet18")
-    network.load_state_dict(torch.load(ckpt_path))
-    target_label = 0
-    datamodule_name = "cifar10"
+    network = "lenet"
+    datamodule_name = "mnist"
 
-    finetune_model = FinetuneModel(
+    finetune_model = NormalModel(
         network=network,
-        train_partial_rate=train_partial_rate,
-        test_partial_rate=test_partial_rate,
         epochs=epochs,
         lr=lr,
-        target_label=target_label,
         datamodule_name=datamodule_name
     )
 
@@ -42,7 +29,7 @@ if __name__ == "__main__":
 
     every_epoch_callback = ModelCheckpoint(
         dirpath=checkpoint_dir_path,
-        filename="finetune-{epoch}"
+        filename="normal-{epoch}"
     )
     lr_monitor = LearningRateMonitor(
         logging_interval="epoch",
@@ -60,5 +47,3 @@ if __name__ == "__main__":
         model=finetune_model,
         datamodule=finetune_model.datamodule
     )
-
-    torch.save(finetune_model._network.state_dict(), f"finetune-trojann-{train_partial_rate}")
