@@ -72,11 +72,11 @@ class CIFAR10DataModule(BaseDataModule):
         return self._test_dataset
 
 
-def CIFAR100DataModule(CIFAR10DataModule):
+class CIFAR100DataModule(CIFAR10DataModule):
     name: str = "cifar100"
 
     def prepare_data(self) -> None:
-        """download cifar10 dataset"""
+        """download cifar100 dataset"""
         CIFAR100(self.data_dir, train=True, download=True)
         CIFAR100(self.data_dir, train=False, download=True)
 
