@@ -1,6 +1,7 @@
 from torch import nn
 import torch.nn.functional as F
 import torch
+from torch import Tensor
 
 __all__ = ["lenet"]
 
@@ -17,6 +18,12 @@ class LeNet(nn.Module):
         self.fc2 = nn.Linear(128, class_num)
 
     def forward(self, x):
+        x = self.get_final_fm(x)
+        x = self.fc2(x)
+
+        return x
+
+    def get_final_fm(self, x: Tensor) -> Tensor:
         x = self.conv1(x)
         x = F.relu(x)
         x = self.conv2(x)
@@ -27,10 +34,8 @@ class LeNet(nn.Module):
         x = self.fc1(x)
         x = F.relu(x)
         x = self.dropout2(x)
-        x = self.fc2(x)
-        output = F.log_softmax(x, dim=1)
 
-        return output
+        return x
 
 
 def lenet(class_num: int) -> LeNet:

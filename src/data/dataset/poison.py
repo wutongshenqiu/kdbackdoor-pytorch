@@ -33,7 +33,11 @@ class PoisonDataset(Dataset):
 
     def __getitem__(self, idx: int) -> Tuple[Tensor, Tensor]:
         x = self._data[idx]
-        x = Image.fromarray(x)
+        # compatible for mnist
+        if x.shape == (28, 28):
+            x = Image.fromarray(x.numpy(), mode='L')
+        else:
+            x = Image.fromarray(x)
         if self._transform is not None:
             x = self._transform(x)
         y = self._targets[idx]
@@ -50,6 +54,9 @@ class PoisonDataset(Dataset):
         targets: Tensor,
     ) -> Tuple[Tensor, Tensor]:
         new_data = copy.deepcopy(data)
+        # compatible for mnist
+        if (len(new_data.shape) == 3):
+            new_data = torch.unsqueeze(new_data, dim=3)
         new_targets = copy.deepcopy(targets)
 
         random_idxs = np.random.permutation(len(new_data))
@@ -64,6 +71,8 @@ class PoisonDataset(Dataset):
                 new_data[idx], upper_left_pos, bottom_right_pos, img_channel
             )
 
+        if (new_data.shape[3] == 1):
+            new_data = torch.squeeze(new_data, dim=3)
         return new_data, new_targets
 
     @staticmethod

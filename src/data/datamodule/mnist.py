@@ -11,7 +11,9 @@ from torchvision.transforms import (
 )
 
 from .base import BaseDataModule
+from .mixins import PoisonDataModuleMixin
 from ..config import settings
+from ..dataset import PoisonDataset
 
 
 class MNISTDataModule(BaseDataModule):
@@ -20,6 +22,7 @@ class MNISTDataModule(BaseDataModule):
     shape: List[int] = [3, 32, 32]
     name: str = "mnist"
     data_dir: str = str(settings.root_dir / name)
+    class_num: int = 10
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
@@ -68,3 +71,35 @@ class MNISTDataModule(BaseDataModule):
     @property
     def test_dataset(self) -> Dataset:
         return self._test_dataset
+
+
+class PoisonMNISTDataModule(MNISTDataModule, PoisonDataModuleMixin):
+
+    def __init__(
+        self, *,
+        poison_rate: float,
+        target_label: int,
+        **kwargs
+    ) -> None:
+        super().__init__(**kwargs)
+
+        self._poison_rate = poison_rate
+        self._target_label = target_label
+
+    def setup(self, stage: Optional[str] = None) -> None:
+        super().setup()
+
+        self._train_dataset = PoisonDataset(
+            dataset=self._train_dataset,
+            poison_rate=self._poison_rate,
+            target_label=self._target_label
+        )
+        self._test_poison_dataset = PoisonDataset(
+            dataset=self._test_dataset,
+            poison_rate=1.0,
+            target_label=self._target_label
+        )
+
+    @property
+    def test_poison_dataset(self) -> Dataset:
+        return self._test_poison_dataset

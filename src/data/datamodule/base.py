@@ -16,6 +16,7 @@ class BaseDataModule(ABC, pl.LightningDataModule):
     shape: List[int]
     name: str
     data_dir: str
+    class_num: int
 
     def __init__(
         self, *,

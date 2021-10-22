@@ -62,14 +62,20 @@ class KDBackdoorModel(pl.LightningModule):
             clip_min=clip_min,
             clip_max=clip_max
         )
-        self._teacher_network = get_network(teacher_network)
+        self._teacher_network = get_network(
+            teacher_network,
+            class_num=self._datamodule.class_num
+        )
         # TODO
         # not clear if this will conflict with `resume_from_checkpoint`
         if pretrain_teacher_path and os.path.exists(pretrain_teacher_path):
             self._teacher_network.load_state_dict(
                 torch.load(pretrain_teacher_path)
             )
-        self._student_network = get_network(student_network)
+        self._student_network = get_network(
+            student_network,
+            class_num=self._datamodule.class_num    
+        )
 
         self._loss_function = get_loss_function(loss_function)
 

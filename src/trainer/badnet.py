@@ -16,7 +16,12 @@ if __name__ == "__main__":
     poison_rate = 0.2
     target_label = 3
 
+    network = "lenet"
+    datamodule_name = "mnist"
+
     badnet_model = BadNetModel(
+        network=network,
+        datamodule_name=datamodule_name,
         poison_rate=poison_rate,
         target_label=target_label,
         epochs=epochs,
@@ -30,7 +35,7 @@ if __name__ == "__main__":
 
     every_epoch_callback = ModelCheckpoint(
         dirpath=checkpoint_dir_path,
-        filename="badnet-{epoch}"
+        filename=f"badnet-{network}-{datamodule_name}-{{epoch}}"
     )
 
     finetune_trainer = Trainer(

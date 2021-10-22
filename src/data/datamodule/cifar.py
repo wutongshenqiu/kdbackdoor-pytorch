@@ -23,6 +23,7 @@ class CIFAR10DataModule(BaseDataModule):
     shape: List[int] = [3, 32, 32]
     name: str = "cifar10"
     data_dir: str = str(settings.root_dir / name)
+    class_num: int = 10
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
@@ -74,6 +75,7 @@ class CIFAR10DataModule(BaseDataModule):
 
 class CIFAR100DataModule(CIFAR10DataModule):
     name: str = "cifar100"
+    class_num: int = 100
 
     def prepare_data(self) -> None:
         """download cifar100 dataset"""
@@ -94,6 +96,38 @@ class CIFAR100DataModule(CIFAR10DataModule):
 
 
 class PoisonCifar10DataModule(CIFAR10DataModule, PoisonDataModuleMixin):
+
+    def __init__(
+        self, *,
+        poison_rate: float,
+        target_label: int,
+        **kwargs
+    ) -> None:
+        super().__init__(**kwargs)
+
+        self._poison_rate = poison_rate
+        self._target_label = target_label
+
+    def setup(self, stage: Optional[str] = None) -> None:
+        super().setup()
+
+        self._train_dataset = PoisonDataset(
+            dataset=self._train_dataset,
+            poison_rate=self._poison_rate,
+            target_label=self._target_label
+        )
+        self._test_poison_dataset = PoisonDataset(
+            dataset=self._test_dataset,
+            poison_rate=1.0,
+            target_label=self._target_label
+        )
+
+    @property
+    def test_poison_dataset(self) -> Dataset:
+        return self._test_poison_dataset
+
+
+class PoisonCifar100DataModule(CIFAR100DataModule, PoisonDataModuleMixin):
 
     def __init__(
         self, *,

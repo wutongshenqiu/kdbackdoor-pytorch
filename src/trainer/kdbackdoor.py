@@ -13,11 +13,11 @@ from src.config import base_config
 
 
 if __name__ == "__main__":
-    datamodule_name = "cifar10"
+    datamodule_name = "mnist"
     epochs = 100
     lr = 0.001
     poison_rate = 0.01
-    teacher_network = "resnet18"
+    teacher_network = "lenet"
 
     # pretrain teacher model
     pretrain_model = NormalModel(

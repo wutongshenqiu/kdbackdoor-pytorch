@@ -2,9 +2,10 @@ from .base import BaseDataModule, BasePoisonDataModule
 from .cifar import (
     CIFAR10DataModule,
     PoisonCifar10DataModule,
-    CIFAR100DataModule
+    CIFAR100DataModule,
+    PoisonCifar100DataModule
 )
-from .mnist import MNISTDataModule
+from .mnist import MNISTDataModule, PoisonMNISTDataModule
 from .partial import PartialDataModule
 
 _AVALIABLE_DATAMODULE = {
@@ -14,7 +15,9 @@ _AVALIABLE_DATAMODULE = {
 }
 
 _AVALIABLE_POISON_DATAMODULE = {
-    "cifar10": PoisonCifar10DataModule
+    "cifar10": PoisonCifar10DataModule,
+    "cifar100": PoisonCifar100DataModule,
+    "mnist": PoisonMNISTDataModule
 }
 
 

@@ -43,7 +43,7 @@ class BadNetModel(pl.LightningModule):
             **datamodule_kwargs
         )
 
-        self._network = get_network(network)
+        self._network = get_network(network, class_num=self._datamodule.class_num)
         self._loss_function = get_loss_function(loss_function)
 
     def forward(self, x: Tensor) -> Any:

@@ -36,7 +36,7 @@ class NormalModel(pl.LightningModule):
 
         self._datamodule = get_datamodule(datamodule_name, **datamodule_kwargs)
 
-        self._network = get_network(network)
+        self._network = get_network(network, class_num=self._datamodule.class_num)
         self._loss_function = get_loss_function(loss_function)
 
     def forward(self, x: Tensor) -> Any:
