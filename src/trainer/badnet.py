@@ -5,6 +5,7 @@ from pytorch_lightning.callbacks import (
     ModelCheckpoint,
     LearningRateMonitor
 )
+from pytorch_lightning.loggers import TensorBoardLogger
 
 from src.pl_models import BadNetModel
 from src.config import base_config
@@ -15,9 +16,10 @@ if __name__ == "__main__":
     lr = 0.001
     poison_rate = 0.2
     target_label = 3
+    cutout = True
 
-    network = "lenet"
-    datamodule_name = "mnist"
+    network = "resnet34"
+    datamodule_name = "cifar100"
 
     badnet_model = BadNetModel(
         network=network,
@@ -25,7 +27,8 @@ if __name__ == "__main__":
         poison_rate=poison_rate,
         target_label=target_label,
         epochs=epochs,
-        lr=lr
+        lr=lr,
+        cutout=cutout
     )
 
     checkpoint_dir_path = (
@@ -35,14 +38,21 @@ if __name__ == "__main__":
 
     every_epoch_callback = ModelCheckpoint(
         dirpath=checkpoint_dir_path,
-        filename=f"badnet-{network}-{datamodule_name}-{{epoch}}"
+        filename=f"badnet-{network}-{datamodule_name}-lr={lr}-label={target_label}-cutout={cutout}-epoch={{epoch}}"
+    )
+
+    _name = f"badnet-{network}-{datamodule_name}-epoch={epochs}-lr={lr}-label={target_label}-cutout={cutout}"
+    logger = TensorBoardLogger(
+        save_dir=f"tb_logs/badnet-{network}-{datamodule_name}",
+        name=_name
     )
 
     finetune_trainer = Trainer(
         callbacks=[every_epoch_callback],
         max_epochs=badnet_model.hparams.epochs,
         gpus=1,
-        auto_select_gpus=True
+        auto_select_gpus=True,
+        logger=logger
     )
 
     finetune_trainer.fit(

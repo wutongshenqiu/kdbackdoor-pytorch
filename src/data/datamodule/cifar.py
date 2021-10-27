@@ -15,6 +15,7 @@ from .base import BaseDataModule
 from .mixins import PoisonDataModuleMixin
 from ..dataset import PoisonDataset
 from ..config import settings
+from src.data.transforms import Cutout
 
 
 class CIFAR10DataModule(BaseDataModule):
@@ -25,8 +26,10 @@ class CIFAR10DataModule(BaseDataModule):
     data_dir: str = str(settings.root_dir / name)
     class_num: int = 10
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, cutout: bool = False, **kwargs) -> None:
         super().__init__(**kwargs)
+
+        self._cutout = cutout
 
     def prepare_data(self) -> None:
         """download cifar10 dataset"""
@@ -34,10 +37,14 @@ class CIFAR10DataModule(BaseDataModule):
         CIFAR10(self.data_dir, train=False, download=True)
 
     def setup(self, stage: Optional[str] = None) -> None:
+        train_transforms = self.get_train_transforms()
+        if self._cutout:
+            print("using cutout")
+            train_transforms.transforms.append(Cutout(1, 3))
         self._train_dataset = CIFAR10(
             root=self.data_dir,
             train=True,
-            transform=self.get_train_transforms()
+            transform=train_transforms
         )
         self._test_dataset = CIFAR10(
             root=self.data_dir,

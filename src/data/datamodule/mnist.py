@@ -14,6 +14,7 @@ from .base import BaseDataModule
 from .mixins import PoisonDataModuleMixin
 from ..config import settings
 from ..dataset import PoisonDataset
+from src.data.transforms import Cutout
 
 
 class MNISTDataModule(BaseDataModule):
@@ -24,8 +25,10 @@ class MNISTDataModule(BaseDataModule):
     data_dir: str = str(settings.root_dir / name)
     class_num: int = 10
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, cutout: bool = False, **kwargs) -> None:
         super().__init__(**kwargs)
+
+        self._cutout = cutout
 
     def prepare_data(self) -> None:
         """download mnist dataset"""
@@ -33,10 +36,14 @@ class MNISTDataModule(BaseDataModule):
         MNIST(self.data_dir, train=False, download=True)
 
     def setup(self, stage: Optional[str] = None) -> None:
+        train_trainforms = self.get_train_transforms()
+        if self._cutout:
+            print("using cutout")
+            train_trainforms.transforms.append(Cutout(1, 3))
         self._train_dataset = MNIST(
             root=self.data_dir,
             train=True,
-            transform=self.get_train_transforms()
+            transform=train_trainforms
         )
         self._test_dataset = MNIST(
             root=self.data_dir,

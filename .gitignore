@@ -3,4 +3,5 @@ lightning_logs/
 checkpoints/
 .vscode/
 tmp/
+tb_logs/
 **/*.pyc

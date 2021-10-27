@@ -5,6 +5,7 @@ from pytorch_lightning.callbacks import (
     ModelCheckpoint,
     LearningRateMonitor
 )
+from pytorch_lightning.loggers import TensorBoardLogger
 
 import torch
 
@@ -13,11 +14,13 @@ from src.config import base_config
 
 
 if __name__ == "__main__":
-    datamodule_name = "mnist"
+    datamodule_name = "cifar100"
     epochs = 100
     lr = 0.001
     poison_rate = 0.01
-    teacher_network = "lenet"
+    teacher_network = "resnet34"
+    cutout = True
+    target_label = 3
 
     # pretrain teacher model
     pretrain_model = NormalModel(
@@ -32,6 +35,7 @@ if __name__ == "__main__":
         base_config.checkpoints_dir_path /
         f"{pretrain_model.name}-{pretrain_model.datamodule.name}"
     )
+
     pretrain_trainer = Trainer(
         max_epochs=pretrain_model.hparams.epochs,
         gpus=1,
@@ -53,10 +57,11 @@ if __name__ == "__main__":
     model = KDBackdoorModel(
         teacher_network=teacher_network,
         student_network="cnn8",
-        target_label=3,
+        target_label=target_label,
         pretrain_teacher_path=str(pretrain_model_path),
         datamodule_name=datamodule_name,
         poison_rate=poison_rate,
+        cutout=cutout
     )
 
     checkpoint_dir_path = (
@@ -79,13 +84,21 @@ if __name__ == "__main__":
 
     every_epoch_callback = ModelCheckpoint(
         dirpath=checkpoint_dir_path,
-        filename="{epoch}"
+        filename=f"kdbackdoor-{teacher_network}-{datamodule_name}-lr={lr}-label={target_label}-cutout={cutout}-epoch={{epoch}}"
     )
+
+    _name = f"kdbackdoor-{teacher_network}-{datamodule_name}-epoch={epochs}-lr={lr}-label={target_label}-cutout={cutout}"
+    logger = TensorBoardLogger(
+        save_dir=f"tb_logs/kdbackdoor-{teacher_network}-{datamodule_name}",
+        name=_name
+    )
+
     trainer = Trainer(
         callbacks=[every_epoch_callback, lr_monitor],
         max_epochs=model.hparams.max_epochs,
         gpus=1,
-        auto_select_gpus=True
+        auto_select_gpus=True,
+        logger=logger
     )
 
     trainer.fit(
