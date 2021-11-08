@@ -1,4 +1,5 @@
 from typing import Type, Union
+import math
 
 import torch
 from torch import nn, Tensor
@@ -38,6 +39,7 @@ def evaluate_benign_accuracy(
     model.eval()
     model.to(device)
     acc = torch.tensor(0.0).to(device)
+    batch_nums = 0
     with torch.no_grad():
         for x, y in dataloader:
             x = x.to(device)
@@ -45,11 +47,12 @@ def evaluate_benign_accuracy(
 
             pred_y = model(x)
             acc += compute_accuracy(pred_y, y)
+            batch_nums += 1
 
     if is_model_training:
         model.train()
 
-    return acc / (len(dataloader.dataset) // dataloader.batch_size)
+    return acc / batch_nums
 
 
 def evaluate_backdoor_success_rate(
@@ -72,6 +75,7 @@ def evaluate_backdoor_success_rate(
     ).fill_(target_label).to(device)
 
     acc = torch.tensor(0.0).to(device)
+    batch_nums = 0
     with torch.no_grad():
         for x, _ in dataloader:
             # HACK
@@ -82,10 +86,11 @@ def evaluate_backdoor_success_rate(
                 pred_backdoor_x,
                 tensor_target_label
             )
+            batch_nums += 1
 
     if is_model_training:
         model.train()
     if is_backdoor_training:
         backdoor.train()
 
-    return acc / (len(dataloader.dataset) // dataloader.batch_size)
+    return acc / batch_nums

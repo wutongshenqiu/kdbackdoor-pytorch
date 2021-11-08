@@ -56,7 +56,7 @@ class MNISTDataModule(BaseDataModule):
         # FIXME
         # 与 tensorflow 正确对应
         return Compose([
-            Resize(cls.shape[1]),
+            Resize(cls.shape[1:]),
             Grayscale(num_output_channels=cls.shape[0]),
             ToTensor(),
             Normalize(mean=cls.mean, std=cls.std)
@@ -65,7 +65,7 @@ class MNISTDataModule(BaseDataModule):
     @classmethod
     def get_test_transforms(cls) -> Compose:
         return Compose([
-            Resize(cls.shape[1]),
+            Resize(cls.shape[1:]),
             Grayscale(num_output_channels=cls.shape[0]),
             ToTensor(),
             Normalize(mean=cls.mean, std=cls.std)

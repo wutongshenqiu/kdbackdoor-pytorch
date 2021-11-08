@@ -9,6 +9,7 @@ from torchvision.transforms import (
     RandomHorizontalFlip,
     RandomRotation,
     Normalize,
+    Resize
 )
 
 from .base import BaseDataModule
@@ -57,7 +58,8 @@ class CIFAR10DataModule(BaseDataModule):
         # FIXME
         # 与 tensorflow 正确对应
         return Compose([
-            RandomCrop(32, padding=4),
+            Resize(cls.shape[1:]),
+            RandomCrop(cls.shape[1:], padding=4),
             RandomHorizontalFlip(),
             RandomRotation(15),
             ToTensor(),
@@ -67,6 +69,7 @@ class CIFAR10DataModule(BaseDataModule):
     @classmethod
     def get_test_transforms(cls) -> Compose:
         return Compose([
+            Resize(cls.shape[1:]),
             ToTensor(),
             Normalize(mean=cls.mean, std=cls.std)
         ])

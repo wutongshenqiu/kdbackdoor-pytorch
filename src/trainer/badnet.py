@@ -18,8 +18,8 @@ if __name__ == "__main__":
     target_label = 3
     cutout = True
 
-    network = "resnet34"
-    datamodule_name = "cifar100"
+    network = "resnet18"
+    datamodule_name = "cifar10"
 
     badnet_model = BadNetModel(
         network=network,
