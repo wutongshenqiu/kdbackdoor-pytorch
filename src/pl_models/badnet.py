@@ -1,9 +1,10 @@
-from typing import Any, Tuple, Optional
+from typing import Any, Tuple, Optional, List
 
 import pytorch_lightning as pl
 
 from torch import Tensor
 from torch.optim import SGD, Optimizer, Adam
+from torch.optim.lr_scheduler import MultiStepLR
 
 from .config.badnet import Config
 from src.networks import get_network
@@ -27,6 +28,9 @@ class BadNetModel(pl.LightningModule):
         lr: float = _config.lr,
         momentum: float = _config.momentum,
         epochs: int = _config.epochs,
+        weight_decay: float = _config.weight_decay,
+        gamma: float = _config.gamma,
+        milestones: List[int] = _config.milestones,
         poison_rate: float = _config.poison_rate,
         target_label: int = _config.target_label,
         datamodule_name: str = _config.datamodule_name,
@@ -78,9 +82,17 @@ class BadNetModel(pl.LightningModule):
             "backdoor_test_acc": backdoor_test_acc
         }, on_step=False, on_epoch=True)
 
-    def configure_optimizers(self) -> Optimizer:
-        return Adam(
+    def configure_optimizers(self) -> Any:
+        optimizer = SGD(
             self._network.parameters(),
             lr=self.hparams.lr,
-            # momentum=self.hparams.momentum
+            momentum=self.hparams.momentum,
+            weight_decay=self.hparams.weight_decay
         )
+        scheduler = MultiStepLR(
+            optimizer,
+            milestones=self.hparams.milestones,
+            gamma=self.hparams.gamma
+        )
+
+        return [optimizer], [scheduler]

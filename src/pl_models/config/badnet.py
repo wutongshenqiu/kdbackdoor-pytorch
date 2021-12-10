@@ -1,13 +1,19 @@
+from typing import List
+
 from pydantic import BaseModel
 
 
 class Config(BaseModel):
-    network: str = "resnet18"
+    network: str = "resnet34"
     loss_function: str = "CrossEntropyLoss"
 
     momentum: float = 0.9
-    lr: float = 0.001
-    epochs: int = 100
+    weight_decay: float = 5e-4
+    lr: float = 0.1
+    epochs: int = 200
+    
+    milestones: List[int] = [60, 120, 160]
+    gamma: float = 0.2
 
     poison_rate: float = 0.1
     target_label: int = 3

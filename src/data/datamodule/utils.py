@@ -1,3 +1,5 @@
+from typing import Tuple, Union
+
 from .base import BaseDataModule, BasePoisonDataModule
 from .cifar import (
     CIFAR10DataModule,
@@ -48,12 +50,14 @@ def get_poison_datamodule(
     datamodule_name: str,
     poison_rate: float,
     target_label: int,
+    trigger_size: Union[int, Tuple[int]] = 3,
     **kwargs
 ) -> BasePoisonDataModule:
     if (datamodule := _AVALIABLE_POISON_DATAMODULE.get(datamodule_name)) is not None:
         return datamodule(
             poison_rate=poison_rate,
             target_label=target_label,
+            trigger_size=trigger_size,
             **kwargs
         )
 

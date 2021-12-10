@@ -15,12 +15,14 @@ from src.config import base_config
 
 if __name__ == "__main__":
     datamodule_name = "cifar100"
-    epochs = 100
-    lr = 0.001
+    epochs = 200
+    lr = 0.1
     poison_rate = 0.01
     teacher_network = "resnet34"
     cutout = True
+    auto_augment = True
     target_label = 3
+    gradient_clip_val = None
 
     # pretrain teacher model
     pretrain_model = NormalModel(
@@ -28,7 +30,9 @@ if __name__ == "__main__":
         loss_function="CrossEntropyLoss",
         lr=lr,
         epochs=epochs,
-        datamodule_name=datamodule_name
+        datamodule_name=datamodule_name,
+        cutout=cutout,
+        auto_augment=auto_augment
     )
 
     pretrain_checkpoint_dir = (
@@ -36,18 +40,25 @@ if __name__ == "__main__":
         f"{pretrain_model.name}-{pretrain_model.datamodule.name}"
     )
 
+    _name = f"pretrain-{teacher_network}-{datamodule_name}-epoch={epochs}-lr={lr}-label={target_label}-cutout={cutout}-auto_augment={auto_augment}"
+    logger = TensorBoardLogger(
+        save_dir=f"tb_logs/pretrain-{teacher_network}-{datamodule_name}",
+        name=_name
+    )
     pretrain_trainer = Trainer(
         max_epochs=pretrain_model.hparams.epochs,
         gpus=1,
-        auto_select_gpus=True
+        auto_select_gpus=True,
+        gradient_clip_val=gradient_clip_val,
+        logger=logger
     )
     pretrain_model_path = pretrain_checkpoint_dir / \
-        f"{teacher_network}-{datamodule_name}-adam-epochs={epochs}-lr={lr}-pretrain.pt"
+        f"{teacher_network}-{datamodule_name}-sgd-epochs={epochs}-lr={lr}-gradient_clip_val={gradient_clip_val}-cutout={cutout}-auto_augment={auto_augment}-pretrain.pt"
     
     if not os.path.exists(pretrain_model_path):
         pretrain_trainer.fit(
             model=pretrain_model,
-            datamodule=pretrain_model.datamodule
+            datamodule=pretrain_model.datamodule,
         )
         if not os.path.exists(pretrain_model_path.parent):
             os.makedirs(pretrain_model_path.parent)
@@ -56,12 +67,11 @@ if __name__ == "__main__":
     # kdbackdoor
     model = KDBackdoorModel(
         teacher_network=teacher_network,
-        student_network="cnn8",
+        student_network="resnet34",
         target_label=target_label,
         pretrain_teacher_path=str(pretrain_model_path),
         datamodule_name=datamodule_name,
         poison_rate=poison_rate,
-        cutout=cutout
     )
 
     checkpoint_dir_path = (
@@ -84,7 +94,7 @@ if __name__ == "__main__":
 
     every_epoch_callback = ModelCheckpoint(
         dirpath=checkpoint_dir_path,
-        filename=f"kdbackdoor-{teacher_network}-{datamodule_name}-lr={lr}-label={target_label}-cutout={cutout}-epoch={{epoch}}"
+        filename=f"kdbackdoor-{teacher_network}-{datamodule_name}-lr={lr}-label={target_label}-epoch={{epoch}}"
     )
 
     _name = f"kdbackdoor-{teacher_network}-{datamodule_name}-epoch={epochs}-lr={lr}-label={target_label}-cutout={cutout}"

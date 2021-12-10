@@ -30,6 +30,7 @@ class KDFinetuneModel(pl.LightningModule):
         loss_function: str = _config.loss_function,
         lr: float = _config.lr,
         momentum: float = _config.momentum,
+        weight_decay: float = _config.weight_decay,
         epochs: int = _config.epochs,
         milestones: List[int] = _config.milestones,
         gamma: float = _config.gamma,
@@ -92,7 +93,8 @@ class KDFinetuneModel(pl.LightningModule):
         optimizer = SGD(
             self._network.parameters(),
             lr=self.hparams.lr,
-            momentum=self.hparams.momentum
+            momentum=self.hparams.momentum,
+            weight_decay=self.hparams.weight_decay
         )
         scheduler = MultiStepLR(
             optimizer,

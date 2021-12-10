@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Union, Tuple
 
 from torchvision.datasets import CIFAR10, CIFAR100
 from torch.utils.data import Dataset
@@ -9,7 +9,9 @@ from torchvision.transforms import (
     RandomHorizontalFlip,
     RandomRotation,
     Normalize,
-    Resize
+    Resize,
+    AutoAugment,
+    AutoAugmentPolicy
 )
 
 from .base import BaseDataModule
@@ -27,10 +29,16 @@ class CIFAR10DataModule(BaseDataModule):
     data_dir: str = str(settings.root_dir / name)
     class_num: int = 10
 
-    def __init__(self, cutout: bool = False, **kwargs) -> None:
+    def __init__(
+        self, 
+        cutout: bool = False, 
+        auto_augment: bool = False, 
+        **kwargs
+    ) -> None:
         super().__init__(**kwargs)
 
         self._cutout = cutout
+        self._auto_augment = auto_augment
 
     def prepare_data(self) -> None:
         """download cifar10 dataset"""
@@ -39,9 +47,15 @@ class CIFAR10DataModule(BaseDataModule):
 
     def setup(self, stage: Optional[str] = None) -> None:
         train_transforms = self.get_train_transforms()
+        if self._auto_augment:
+            print("using auto augment")
+            train_transforms.transforms.insert(
+                4, AutoAugment(AutoAugmentPolicy.CIFAR10)
+            )
         if self._cutout:
             print("using cutout")
-            train_transforms.transforms.append(Cutout(1, 3))
+            train_transforms.transforms.insert(-1, Cutout(1, 3))
+        print(train_transforms)
         self._train_dataset = CIFAR10(
             root=self.data_dir,
             train=True,
@@ -84,6 +98,8 @@ class CIFAR10DataModule(BaseDataModule):
 
 
 class CIFAR100DataModule(CIFAR10DataModule):
+    mean: List[float] = [0.5071, 0.4865, 0.4409]
+    std: List[float] = [0.2673, 0.2564, 0.2762]
     name: str = "cifar100"
     class_num: int = 100
 
@@ -93,6 +109,17 @@ class CIFAR100DataModule(CIFAR10DataModule):
         CIFAR100(self.data_dir, train=False, download=True)
 
     def setup(self, stage: Optional[str] = None) -> None:
+        train_transforms = self.get_train_transforms()
+        if self._auto_augment:
+            print("using auto augment")
+            train_transforms.transforms.insert(
+                4, AutoAugment(AutoAugmentPolicy.CIFAR10)
+            )
+        if self._cutout:
+            print("using cutout")
+            train_transforms.transforms.insert(-1, Cutout(1, 3))
+        print(train_transforms)
+
         self._train_dataset = CIFAR100(
             root=self.data_dir,
             train=True,
@@ -111,12 +138,14 @@ class PoisonCifar10DataModule(CIFAR10DataModule, PoisonDataModuleMixin):
         self, *,
         poison_rate: float,
         target_label: int,
+        trigger_size: Union[int, Tuple[int]] = 3,
         **kwargs
     ) -> None:
         super().__init__(**kwargs)
 
         self._poison_rate = poison_rate
         self._target_label = target_label
+        self._trigger_size = trigger_size
 
     def setup(self, stage: Optional[str] = None) -> None:
         super().setup()
@@ -124,12 +153,14 @@ class PoisonCifar10DataModule(CIFAR10DataModule, PoisonDataModuleMixin):
         self._train_dataset = PoisonDataset(
             dataset=self._train_dataset,
             poison_rate=self._poison_rate,
-            target_label=self._target_label
+            target_label=self._target_label,
+            trigger_size=self._trigger_size
         )
         self._test_poison_dataset = PoisonDataset(
             dataset=self._test_dataset,
             poison_rate=1.0,
-            target_label=self._target_label
+            target_label=self._target_label,
+            trigger_size=self._trigger_size
         )
 
     @property
@@ -143,12 +174,14 @@ class PoisonCifar100DataModule(CIFAR100DataModule, PoisonDataModuleMixin):
         self, *,
         poison_rate: float,
         target_label: int,
+        trigger_size: Union[int, Tuple[int]] = 3,
         **kwargs
     ) -> None:
         super().__init__(**kwargs)
 
         self._poison_rate = poison_rate
         self._target_label = target_label
+        self._trigger_size = trigger_size
 
     def setup(self, stage: Optional[str] = None) -> None:
         super().setup()
@@ -156,12 +189,14 @@ class PoisonCifar100DataModule(CIFAR100DataModule, PoisonDataModuleMixin):
         self._train_dataset = PoisonDataset(
             dataset=self._train_dataset,
             poison_rate=self._poison_rate,
-            target_label=self._target_label
+            target_label=self._target_label,
+            trigger_size=self._trigger_size
         )
         self._test_poison_dataset = PoisonDataset(
             dataset=self._test_dataset,
             poison_rate=1.0,
-            target_label=self._target_label
+            target_label=self._target_label,
+            trigger_size=self._trigger_size
         )
 
     @property

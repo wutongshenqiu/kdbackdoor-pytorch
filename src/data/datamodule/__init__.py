@@ -1,5 +1,8 @@
 from .base import BaseDataModule
-from .cifar import CIFAR10DataModule
+from .cifar import (
+    CIFAR10DataModule,
+    CIFAR100DataModule
+)
 from .mnist import MNISTDataModule
 
 from .utils import (

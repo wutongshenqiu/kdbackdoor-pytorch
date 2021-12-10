@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Union, Tuple
 
 from torchvision.datasets import MNIST
 from torch.utils.data import Dataset
@@ -7,7 +7,9 @@ from torchvision.transforms import (
     ToTensor,
     Normalize,
     Resize,
-    Grayscale
+    Grayscale,
+    AutoAugment,
+    AutoAugmentPolicy
 )
 
 from .base import BaseDataModule
@@ -36,14 +38,15 @@ class MNISTDataModule(BaseDataModule):
         MNIST(self.data_dir, train=False, download=True)
 
     def setup(self, stage: Optional[str] = None) -> None:
-        train_trainforms = self.get_train_transforms()
+        train_transforms = self.get_train_transforms()
         if self._cutout:
             print("using cutout")
-            train_trainforms.transforms.append(Cutout(1, 3))
+            train_transforms.transforms.insert(-1, Cutout(1, 3))
+        print(train_transforms)
         self._train_dataset = MNIST(
             root=self.data_dir,
             train=True,
-            transform=train_trainforms
+            transform=train_transforms
         )
         self._test_dataset = MNIST(
             root=self.data_dir,
@@ -86,12 +89,14 @@ class PoisonMNISTDataModule(MNISTDataModule, PoisonDataModuleMixin):
         self, *,
         poison_rate: float,
         target_label: int,
+        trigger_size: Union[int, Tuple[int]] = 3,
         **kwargs
     ) -> None:
         super().__init__(**kwargs)
 
         self._poison_rate = poison_rate
         self._target_label = target_label
+        self._trigger_size = trigger_size
 
     def setup(self, stage: Optional[str] = None) -> None:
         super().setup()
@@ -99,12 +104,14 @@ class PoisonMNISTDataModule(MNISTDataModule, PoisonDataModuleMixin):
         self._train_dataset = PoisonDataset(
             dataset=self._train_dataset,
             poison_rate=self._poison_rate,
-            target_label=self._target_label
+            target_label=self._target_label,
+            trigger_size=self._trigger_size
         )
         self._test_poison_dataset = PoisonDataset(
             dataset=self._test_dataset,
             poison_rate=1.0,
-            target_label=self._target_label
+            target_label=self._target_label,
+            trigger_size=self._trigger_size
         )
 
     @property

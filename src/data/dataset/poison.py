@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Union
 import copy
 
 import torch
@@ -19,6 +19,7 @@ class PoisonDataset(Dataset):
         dataset: VisionDataset,
         poison_rate: float,
         target_label: int,
+        trigger_size: Union[int, Tuple[int]] = 3
     ) -> Dataset:
         if poison_rate < 0 or poison_rate > 1:
             raise ValueError("`poison_rate` should between 0 and 1")
@@ -28,7 +29,7 @@ class PoisonDataset(Dataset):
         self._poison_rate = poison_rate
 
         self._data, self._targets = self._inject_trigger(
-            dataset.data, dataset.targets
+            dataset.data, dataset.targets, trigger_size
         )
 
     def __getitem__(self, idx: int) -> Tuple[Tensor, Tensor]:
@@ -52,7 +53,13 @@ class PoisonDataset(Dataset):
         self,
         data: Tensor,
         targets: Tensor,
+        trigger_size: Union[int, Tuple[int]]
     ) -> Tuple[Tensor, Tensor]:
+        if isinstance(trigger_size, int):
+            trigger_size = (trigger_size, trigger_size)
+        assert len(trigger_size) == 2
+        print(f"using trigger size: {trigger_size}")
+
         new_data = copy.deepcopy(data)
         # compatible for mnist
         if (len(new_data.shape) == 3):
@@ -63,7 +70,9 @@ class PoisonDataset(Dataset):
         random_idxs = random_idxs[:int(self._poison_rate * len(random_idxs))]
 
         img_width, img_height, img_channel = new_data[0].shape
-        upper_left_pos = (img_width - 3, img_height - 3)
+        trigger_width = trigger_size[0]
+        trigger_height = trigger_size[1]
+        upper_left_pos = (img_width - trigger_width, img_height - trigger_height)
         bottom_right_pos = (img_width, img_height)
         for idx in random_idxs:
             new_targets[idx] = self._target_label
